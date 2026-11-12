@@ -86,3 +86,6 @@
 - docs/RETRAIN.md：再训练闭环
 - docs/API.md：接口说明
 - 身份证翻拍识别工具开发计划.md：完整开发计划
+## 许可证
+
+本项目以 MIT License 开源，详见 [LICENSE](LICENSE)。仅限授权业务场景使用，使用者须遵守《个人信息保护法》等相关法规。
