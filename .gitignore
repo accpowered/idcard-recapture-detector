@@ -93,3 +93,6 @@ _pipcache*/
 # 内部临时脚本
 _gh_*.mjs
 _pipwrap.py
+# 离线发行包产物
+/offline/
+_offline_test/

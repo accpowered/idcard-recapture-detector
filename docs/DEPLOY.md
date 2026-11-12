@@ -32,20 +32,41 @@ Linux / macOS：
 按 §5.2 三级策略分发：随仓库 LFS / 引导下载（ModelScope/HF/官方源回退）/ 离线发行包。
 未安装这些官方权重不影响翻拍判定核心能力（信号分析 + 特征分类器）。
 
-## 离线发行包
+## 联网要求（重要）
 
-对完全离线内网，打包：
+解压源码后，**翻拍判定核心能力**（信号分析 + 特征分类器）不依赖外部下载，
+但以下两项首次运行需要联网：
 
-    # 1) 导出依赖 wheel
-    pip download -r requirements.txt -d dist/wheels
-    # 2) 复制模型与脚本
-    cp -r models dist/
-    cp run.py setup.sh dist/
+1. `pip install -r requirements.txt` —— 安装 numpy/opencv/fastapi/rapidocr/onnxruntime 等依赖；
+2. 首次初始化 OCR 时，rapidocr 会自动下载 PP-OCRv6 中文 det/rec/cls ONNX（约 30MB）到其包内 models/。
 
-离线机执行：
+如果目标机已装好依赖、或已按下面方式打包，即可完全离线运行。
 
-    python -m pip install --no-index --find-links dist/wheels -r requirements.txt
-    python run.py --offline
+## 完全离线发行包（推荐）
+
+在有网的机器上（建议在项目 venv 内）运行：
+
+    python tools/prepare_offline.py --out offline
+
+产物：`offline/wheels/`（依赖 wheel）、`offline/rapidocr_models/`（OCR 模型）、
+`offline/install_offline.bat` / `.sh`、`offline/README.md`。
+
+把「整个项目目录 + offline/」拷到离线机器（同操作系统、同 Python 大版本），执行：
+
+    # Windows
+    offline\install_offline.bat
+    # Linux
+    bash offline/install_offline.sh
+
+然后 `run.bat` / `./run.sh` 启动即可，全程不联网。
+
+注意：wheel 与平台相关（Windows 包在 Windows 准备，Linux 同理）；`--skip-wheels` 可只导出 OCR 模型。
+
+## 更省事的离线方式
+
+若目标机已有 Python 环境，直接**整包拷贝项目目录（连同 `.venv` 或 `vendor/`）**，
+用 `.venv\Scripts\python.exe run.py` 启动即可，无需任何安装。
+（要求：同操作系统、同 Python 大版本。）
 
 ## 常见问题
 

@@ -69,11 +69,9 @@ class Handler(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         try:
             if p == "/api/health":
-                try:
-                    ocr_available = bool(ctx.pipeline._ensure_ocr().available)
-                except Exception:  # noqa: BLE001
-                    ocr_available = False
-                return 200, {"status": "ok", "ocr_available": ocr_available, "version": "1.0.0"}
+                import importlib.util
+                ocr_installed = importlib.util.find_spec("rapidocr") is not None
+                return 200, {"status": "ok", "ocr_installed": ocr_installed, "version": "1.0.0"}
             if p == "/api/analyze" and method == "POST":
                 files = parse_multipart(body, self.headers.get("Content-Type", ""))
                 if "file" not in files:

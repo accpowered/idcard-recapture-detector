@@ -23,11 +23,10 @@ app = FastAPI(title="居民身份证翻拍识别工具", version="1.0.0")
 
 @app.get("/api/health")
 def health():
-    try:
-        ocr_available = bool(ctx.pipeline._ensure_ocr().available)
-    except Exception:  # noqa: BLE001
-        ocr_available = False
-    return {"status": "ok", "ocr_available": ocr_available, "version": "1.0.0"}
+    # 仅检查 rapidocr 是否已安装，避免触发模型下载（离线首次启动可能耗时/失败）
+    import importlib.util
+    ocr_installed = importlib.util.find_spec("rapidocr") is not None
+    return {"status": "ok", "ocr_installed": ocr_installed, "version": "1.0.0"}
 
 
 @app.post("/api/analyze")
