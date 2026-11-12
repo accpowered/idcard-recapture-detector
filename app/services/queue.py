@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 class BatchQueue:
@@ -15,23 +15,24 @@ class BatchQueue:
         self.tasks: Dict[str, Dict] = {}
         self.lock = threading.Lock()
 
-    def submit(self, files: List[tuple]) -> str:
+    def submit(self, files: List[tuple], model_version: Optional[str] = None) -> str:
         """files: [(file_name, bytes), ...]"""
         tid = uuid.uuid4().hex
         task = {
             "id": tid, "total": len(files), "done": 0, "status": "running",
             "results": [], "errors": [], "created_at": time.time(),
+            "model_version": model_version or "auto",
         }
         with self.lock:
             self.tasks[tid] = task
-        self.executor.submit(self._run, tid, files)
+        self.executor.submit(self._run, tid, files, model_version)
         return tid
 
-    def _run(self, tid: str, files: List[tuple]):
+    def _run(self, tid: str, files: List[tuple], model_version: Optional[str] = None):
         task = self.tasks[tid]
         for name, data in files:
             try:
-                res = self.pipeline.analyze(data)
+                res = self.pipeline.analyze(data, model_version=model_version)
                 entry = {"file_name": name, "result": res.get("result") if res.get("code") == 0 else None,
                          "error": res.get("error")}
                 task["results"].append(entry)

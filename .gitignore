@@ -56,6 +56,11 @@ outputs/
 *.pdmodel
 *.pdopt
 
+# ---------- 模型版本（基线入库，Web/CLI 训练产生的版本不入库）----------
+models/recapture/versions/*
+!models/recapture/versions/1.0.0/
+!models/recapture/versions/1.0.0/**
+
 # ---------- 模型二进制（特征权重 JSON 入库，ONNX/PT 不入库）----------
 models/**/*.onnx
 models/**/*.pt
@@ -86,6 +91,8 @@ _tmppip*/
 _pipcache*/
 
 # ---------- 本地敏感配置 ----------
+# Web「设置」页写入的本地配置叠加层（不改动随仓库发布的 settings.yaml）
+config/settings.local.json
 .env
 .env.*
 !.env.example

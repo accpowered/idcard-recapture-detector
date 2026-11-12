@@ -92,3 +92,47 @@ label input { margin-left: 8px; background: var(--card2); border: 1px solid var(
 #verdictCard h3, #fieldCard h3 { margin: 0 0 4px; font-size: 16px; }
 #verdictCard h4 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
 .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+/* ---------- v1.1：模型版本 / 训练闭环 / 设置 ---------- */
+.runtime-badge { margin-left: auto; font-size: 12px; color: var(--muted); border: 1px solid var(--border); padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+.runtime-badge.warn { color: #fde68a; border-color: rgba(234,179,8,.5); }
+.model-toolbar { align-items: center; flex-wrap: wrap; }
+select { background: var(--card2); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 8px; font-size: 13px; }
+.inline-label { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.mode-tag { font-size: 12px; color: var(--accent); border: 1px solid rgba(59,130,246,.4); background: rgba(59,130,246,.1); padding: 4px 10px; border-radius: 999px; }
+.version-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+.version-table th, .version-table td { text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.version-table th { color: var(--muted); font-weight: 500; }
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--muted); }
+.status-badge.ok { color: #86efac; border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.12); }
+.status-badge.warn { color: #fde68a; border-color: rgba(234,179,8,.45); background: rgba(234,179,8,.12); }
+.status-badge.error { color: #fca5a5; border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.12); }
+.banner { padding: 10px 12px; border-radius: 8px; margin: 10px 0; font-size: 13px; border: 1px solid var(--border); }
+.banner.success { border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.1); color: #bbf7d0; }
+.banner.warn { border-color: rgba(234,179,8,.5); background: rgba(234,179,8,.08); color: #fde68a; }
+.banner.error { border-color: var(--red); background: rgba(239,68,68,.12); color: #fca5a5; }
+.dataset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 14px 0; }
+.dataset-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--card2); }
+.dc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dc-count { font-size: 22px; font-weight: 700; margin: 6px 0 2px; }
+.dc-files { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.file-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px 2px 8px; font-size: 11px; color: var(--muted); max-width: 100%; overflow: hidden; }
+.chip-x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 4px; }
+.chip-x:hover { color: var(--red); }
+.guidance-list { margin: 8px 0 4px; padding-left: 22px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 10px 0; }
+.upload-row input[type=file] { color: var(--muted); font-size: 13px; max-width: 260px; }
+.params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; margin: 14px 0; }
+.params-grid label { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 13px; }
+.params-grid input { width: 100%; margin: 0; }
+.checkbox-label { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; color: var(--text); }
+.checkbox-label input { width: auto; margin: 0; }
+.radio-row { display: grid; gap: 10px; margin: 10px 0; }
+.radio-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; margin: 0; color: var(--text); }
+.radio-card:hover { border-color: var(--accent); }
+.radio-card input { width: auto; margin: 0 6px 0 0; }
+.radio-card b { font-size: 14px; }
+.log { background: var(--card2); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; margin: 8px 0; }
+.btn.small { padding: 4px 10px; font-size: 12px; }
+#settingsEffective, #healthDump { max-height: 320px; overflow: auto; }
+.params-grid label.checkbox-label { flex-direction: row; align-items: center; }
+.params-grid label.checkbox-label input { width: auto; }

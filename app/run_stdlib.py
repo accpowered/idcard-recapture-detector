@@ -13,10 +13,13 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app import __version__  # noqa: E402
+from app.api.ops import ApiError, ApiOps  # noqa: E402
 from app.app_context import AppContext  # noqa: E402
 from app.core.config import ROOT  # noqa: E402
 
 ctx = AppContext()
+ops = ApiOps(ctx)
 WEB_DIR = os.path.join(ROOT, "app", "web")
 
 _MIME = {
@@ -28,12 +31,13 @@ _MIME = {
 
 
 def parse_multipart(body: bytes, content_type: str):
-    m = re.search(r"boundary=(.+)$", content_type)
+    """解析 multipart，同名字段收集为列表（修复多文件互相覆盖）。"""
+    m = re.search(r"boundary=(.+)$", content_type or "")
     if not m:
         return {}
     boundary = m.group(1).strip().strip('"').encode()
     parts = body.split(b"--" + boundary)
-    files = {}
+    fields = {}
     for part in parts:
         if b"Content-Disposition" not in part:
             continue
@@ -45,15 +49,22 @@ def parse_multipart(body: bytes, content_type: str):
         if not dm:
             continue
         name = dm.group(1)
-        if fm:
-            files[name] = (fm.group(1), content)
-        else:
-            files[name] = content.decode("utf-8", "ignore")
-    return files
+        value = (fm.group(1), content) if fm else content.decode("utf-8", "ignore")
+        fields.setdefault(name, []).append(value)
+    return fields
+
+
+def first_field(fields, name, default=None):
+    values = fields.get(name) or []
+    return values[0] if values else default
+
+
+def file_items(fields, name):
+    return [v for v in (fields.get(name) or []) if isinstance(v, tuple)]
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "IDReshootCheck/1.0"
+    server_version = "IDReshootCheck/1.1"
 
     def _send(self, code, obj, ctype="application/json; charset=utf-8"):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8") if not isinstance(obj, bytes) else obj
@@ -69,30 +80,27 @@ class Handler(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         try:
             if p == "/api/health":
-                import importlib.util
-                ocr_installed = importlib.util.find_spec("rapidocr") is not None
-                return 200, {"status": "ok", "ocr_installed": ocr_installed, "version": "1.0.0"}
+                return 200, ops.health()
             if p == "/api/analyze" and method == "POST":
                 files = parse_multipart(body, self.headers.get("Content-Type", ""))
-                if "file" not in files:
+                items = file_items(files, "file")
+                if not items:
                     return 400, {"code": 400, "error": "缺少 file"}
-                name, data = files["file"]
-                return 200, ctx.analyze(data, name)
+                name, data = items[0]
+                return 200, ops.analyze(data, name, first_field(files, "model_version", "auto"))
             if p == "/api/batch" and method == "POST":
                 files = parse_multipart(body, self.headers.get("Content-Type", ""))
-                items = []
-                for k, v in files.items():
-                    if isinstance(v, tuple):
-                        items.append((v[0], v[1]))
-                return 200, {"code": 0, "task_id": ctx.batch(items)}
+                items = [(name, data) for name, data in file_items(files, "files")]
+                return 200, ops.batch(items, first_field(files, "model_version", "auto"))
             if p.startswith("/api/batch/") and method == "GET":
-                return 200, ctx.batch_status(p.rsplit("/", 1)[1])
+                return 200, ops.batch_status(p.rsplit("/", 1)[1])
             if p == "/api/feedback" and method == "POST":
                 files = parse_multipart(body, self.headers.get("Content-Type", ""))
-                if "file" not in files:
+                items = file_items(files, "file")
+                if not items:
                     return 400, {"code": 400, "error": "缺少 file"}
-                name, data = files["file"]
-                true_class = files.get("true_class", "screen_recapture")
+                name, data = items[0]
+                true_class = first_field(files, "true_class", "screen_recapture")
                 fid = ctx.submit_feedback(name, true_class, data)
                 return 200, {"code": 0, "feedback_id": fid}
             if p == "/api/feedback" and method == "GET":
@@ -105,17 +113,31 @@ class Handler(BaseHTTPRequestHandler):
             m = re.match(r"^/api/feedback/([^/]+)/reject$", p)
             if m and method == "POST":
                 return 200, {"code": 0, "ok": ctx.storage.reject_feedback(m.group(1))}
+            if p == "/api/train/dataset" and method == "GET":
+                return 200, ops.dataset(qs.get("data_dir", [None])[0], qs.get("mode", [None])[0])
+            if p == "/api/train/samples" and method == "POST":
+                files = parse_multipart(body, self.headers.get("Content-Type", ""))
+                class_name = first_field(files, "class")
+                return 200, ops.upload_samples(class_name, file_items(files, "files"))
+            if p == "/api/train/samples/delete" and method == "POST":
+                payload = json.loads(body.decode() or "{}")
+                return 200, ops.delete_sample(payload.get("class"), payload.get("name"))
             if p == "/api/train" and method == "POST":
-                params = json.loads(body.decode() or "{}")
-                return 200, {"code": 0, "job_id": ctx.start_train(params)}
+                return 200, ops.train_start(json.loads(body.decode() or "{}"))
             if p.startswith("/api/train/") and method == "GET":
-                return 200, ctx.train_status(p.rsplit("/", 1)[1])
+                return 200, ops.train_status(p.rsplit("/", 1)[1])
             if p == "/api/models" and method == "GET":
-                return 200, {"code": 0, "current": ctx.model_manager.current(), "versions": ctx.model_manager.list_versions()}
+                return 200, ops.models()
+            if p == "/api/models/activate" and method == "POST":
+                payload = json.loads(body.decode() or "{}")
+                return 200, ops.activate(payload.get("version"))
             if p == "/api/models/rollback" and method == "POST":
-                version = json.loads(body.decode() or "{}").get("version")
-                ok = ctx.model_manager.rollback(version)
-                return 200, {"code": 0 if ok else 1, "ok": ok}
+                payload = json.loads(body.decode() or "{}")
+                return 200, ops.activate(payload.get("version"))
+            if p == "/api/settings" and method == "GET":
+                return 200, ops.settings_get()
+            if p == "/api/settings" and method == "POST":
+                return 200, ops.settings_save(json.loads(body.decode() or "{}"))
             if p == "/api/history" and method == "GET":
                 return 200, {"code": 0, "items": ctx.storage.list_history()}
             if p.startswith("/api/history/") and method == "GET":
@@ -136,6 +158,10 @@ class Handler(BaseHTTPRequestHandler):
             if rel.startswith("static/"):
                 return 404, {"error": "not found"}
             return 200, open(os.path.join(WEB_DIR, "index.html"), "rb").read(), "text/html; charset=utf-8"
+        except ApiError as exc:
+            payload = {"code": exc.code, "error": exc.message}
+            payload.update(exc.payload)
+            return exc.code, payload
         except Exception as exc:  # noqa: BLE001
             return 500, {"code": 500, "error": str(exc)}
 
@@ -155,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def run(host="127.0.0.1", port=8000):
     srv = ThreadingHTTPServer((host, port), Handler)
-    print(f"服务已启动：http://{host}:{port}")
+    print("服务已启动：http://{}:{}（版本 {}）".format(host, port, __version__))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

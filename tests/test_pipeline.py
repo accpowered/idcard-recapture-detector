@@ -30,7 +30,6 @@ def make_card_image(aspect=(856, 540), bg_color=(70, 80, 90)):
     # 标题与号码行
     card[30:60, 60:260] = (30, 30, 35)
     card[H - 70:H - 40, 60:620] = (30, 30, 35)
-    # 轻微整体明暗变化（非低频谱噪声）
     card = np.clip(card, 0, 255)
     img[pad:pad + H, pad:pad + W] = card.astype(np.uint8)
     return img
@@ -68,8 +67,37 @@ def test_pipeline_screen_recapture_higher_than_original():
     r0 = p.analyze(to_jpeg(base))
     r1 = p.analyze(to_jpeg(screen))
     assert r0["code"] == 0 and r1["code"] == 0
-    # 屏幕翻拍应推高“屏幕翻拍”证据与总分
     e0 = {e["name"]: e["score"] for e in r0["result"]["recapture"]["evidences"]}
     e1 = {e["name"]: e["score"] for e in r1["result"]["recapture"]["evidences"]}
     assert e1["moire"] >= e0["moire"]
     assert r1["result"]["recapture"]["score"] >= r0["result"]["recapture"]["score"] - 0.02
+
+
+def test_pipeline_reports_model_and_mode():
+    from app.core.pipeline import Pipeline
+    p = Pipeline()
+    data = to_jpeg(make_card_image())
+    res = p.analyze(data)
+    assert res["code"] == 0, res.get("error")
+    rc = res["result"]["recapture"]
+    assert rc["model_version"] == "1.0.0"
+    assert rc["mode"] == "screen_and_print"
+    assert "print_recapture" in rc["probs"]
+
+    explicit = p.analyze(data, model_version="1.0.0")
+    assert explicit["code"] == 0
+    assert explicit["result"]["recapture"]["model_version"] == "1.0.0"
+
+    missing = p.analyze(data, model_version="version-does-not-exist")
+    assert missing["code"] == 404
+
+
+def test_pipeline_screen_only_masks_print():
+    from app.core.pipeline import Pipeline
+    p = Pipeline()
+    res = p.analyze(to_jpeg(make_card_image()), mode="screen_only")
+    assert res["code"] == 0, res.get("error")
+    rc = res["result"]["recapture"]
+    assert rc["mode"] == "screen_only"
+    assert "print_recapture" not in rc["probs"]
+    assert abs(sum(rc["probs"].values()) - 1.0) < 1e-3

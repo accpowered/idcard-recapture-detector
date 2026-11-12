@@ -1,30 +1,40 @@
-"""应用上下文：装配流水线、存储、队列、模型管理，供 FastAPI 与 stdlib 服务共用。"""
+"""应用上下文：装配流水线、存储、队列、模型管理与训练闭环，供 FastAPI 与 stdlib 服务共用。"""
 from __future__ import annotations
 
 import os
-import threading
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from .core.config import ROOT, load_settings
+from .core.config import ROOT
 from .core.pipeline import Pipeline
 from .services.model_manager import ModelManager
 from .services.queue import BatchQueue
+from .services.settings_store import SettingsStore
 from .services.storage import Storage
+from .services.training import TrainingRunner
 
 
 class AppContext:
-    def __init__(self):
-        self.settings = load_settings()
-        self.pipeline = Pipeline(self.settings)
-        self.storage = Storage(os.path.join(ROOT, self.settings.get("storage", {}).get("db_path", "data/app.db")))
+    def __init__(self, settings_store: Optional[SettingsStore] = None,
+                 model_manager: Optional[ModelManager] = None):
+        self.settings_store = settings_store or SettingsStore()
+        self.settings = self.settings_store.get_all()
+        keep_versions = int(self.settings_store.get("training.keep_versions", 10) or 10)
+        self.model_manager = model_manager or ModelManager(keep_versions=keep_versions)
+        self.pipeline = Pipeline(self.settings, settings_store=self.settings_store,
+                                 model_manager=self.model_manager)
+        self.storage = Storage(os.path.join(
+            ROOT, self.settings.get("storage", {}).get("db_path", "data/app.db")))
         self.queue = BatchQueue(self.pipeline, max_workers=2)
-        self.model_manager = ModelManager(os.path.join(ROOT, "models/recapture"))
-        self.train_jobs: Dict[str, Dict] = {}
-        self._train_lock = threading.Lock()
+        self.training = TrainingRunner(
+            self.model_manager, self.settings_store,
+            data_root=os.path.join(ROOT, "data"),
+            runs_root=os.path.join(ROOT, "runs"))
+        self.train_jobs = self.training.jobs
 
     # ---- 分析 ----
-    def analyze(self, data: bytes, file_name: str = "upload.jpg", save: bool = True) -> Dict:
-        res = self.pipeline.analyze(data)
+    def analyze(self, data: bytes, file_name: str = "upload.jpg", save: bool = True,
+                model_version: Optional[str] = None) -> Dict:
+        res = self.pipeline.analyze(data, model_version=model_version)
         if res.get("code") == 0 and save:
             store = bool(self.settings.get("privacy", {}).get("store_original", False)) is False
             if store:
@@ -32,8 +42,8 @@ class AppContext:
         return res
 
     # ---- 批量 ----
-    def batch(self, files: List[tuple]) -> str:
-        return self.queue.submit(files)
+    def batch(self, files: List[tuple], model_version: Optional[str] = None) -> str:
+        return self.queue.submit(files, model_version=model_version)
 
     def batch_status(self, tid: str) -> Dict:
         return self.queue.get(tid)
@@ -43,39 +53,14 @@ class AppContext:
         fb_dir = os.path.join(ROOT, self.settings.get("storage", {}).get("feedback_dir", "data/feedback"))
         os.makedirs(fb_dir, exist_ok=True)
         safe = "".join(c for c in file_name if c.isalnum() or c in "._-") or "sample.jpg"
-        path = os.path.join(fb_dir, f"{int(__import__('time').time() * 1000)}_{safe}")
+        path = os.path.join(fb_dir, "{}_{}".format(int(__import__("time").time() * 1000), safe))
         with open(path, "wb") as f:
             f.write(image_data)
         return self.storage.add_feedback(file_name, true_class, path)
 
-    # ---- 训练 ----
+    # ---- 训练（兼容旧调用） ----
     def start_train(self, params: Dict) -> str:
-        import uuid
-        tid = uuid.uuid4().hex
-        with self._train_lock:
-            self.train_jobs[tid] = {"id": tid, "status": "running", "progress": 0, "logs": [], "error": None}
-        t = threading.Thread(target=self._run_train, args=(tid, params), daemon=True)
-        t.start()
-        return tid
-
-    def _run_train(self, tid: str, params: Dict):
-        job = self.train_jobs[tid]
-        try:
-            from tools.train_recapture import train
-            out = params.get("out") or "runs/recap_web"
-            wp = train(
-                data_dir=params.get("data_dir", "data/recapture"),
-                out_dir=out,
-                epochs=int(params.get("epochs", 60)),
-                limit_per_class=int(params.get("limit_per_class", 0)),
-                class_weights=params.get("class_weights"),
-            )
-            job["weights_path"] = wp
-            job["status"] = "done"
-            job["progress"] = 100
-        except Exception as exc:  # noqa: BLE001
-            job["status"] = "failed"
-            job["error"] = str(exc)
+        return self.training.start(params)["id"]
 
     def train_status(self, tid: str) -> Dict:
-        return self.train_jobs.get(tid, {"status": "not_found"})
+        return self.training.status(tid)

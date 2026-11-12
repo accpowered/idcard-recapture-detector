@@ -18,8 +18,22 @@
 | 误判反馈 → 复核 → 并入训练集 | ✅ | app/services/storage.py、app/web |
 | 再训练闭环（train → evaluate → export/热替换 → 回滚） | ✅ 已跑通 | tools/*.py |
 | 模型管理（版本、指标、回滚） | ✅ | app/services/model_manager.py |
+| Web 训练闭环（素材上传 + 成对引导 + 一键训练 + 自动上线/候选） | ✅ | app/services/training.py、app/web |
+| 识别时选择模型版本、运行中热切换 | ✅ | app/core/pipeline.py、app/services/model_manager.py、app/web |
+| 全局识别模式（仅屏幕 / 屏幕+打印）与训练契约 | ✅ | app/core/recapture/modes.py、config/settings.yaml |
+| 设置持久化（训练区显隐、模式、保留版本数） | ✅ | app/services/settings_store.py、app/web |
 
-测试：python tests/run_tests.py（11 项全通过）或 pytest tests/。
+测试：python tests/run_tests.py（39 项全通过）或 pytest tests/。
+
+## v1.1 变更摘要
+
+- 新增 Web 训练闭环：数据集体检/引导、素材上传、后台训练、评估+阈值校准、过质量门后自动升级。
+- 新增模型版本管理：版本元数据（模式/类别/指标/父版本）、识别与批量可选版本、启用/回退即时生效（无需重启）。
+- 新增全局识别模式，同时约束训练类别与推理行为；仅屏幕模式下不输出打印类、打印概率不参与打分。
+- 设置页两项可持久化并即时生效：训练区显示/隐藏、识别模式；写入 config/settings.local.json。
+- FastAPI 与标准库兜底服务共用 app/api/ops.py；修复标准库 multipart 同名字段互相覆盖的问题。
+- 兼容性：旧 weights.json（无 classes/mode）按三类、屏幕+打印加载；/api/models 的 versions 由字符串数组改为对象数组。
+- 修复：批量轮询响应补齐 code（前端不再误报 HTTP 200）；SQLite 历史查询改用 temp_store=MEMORY（受限 TEMP 环境不再 500）；无 OCR 时隐藏关键字段卡片与 HEIC 提示。
 
 ## 启动方式
 

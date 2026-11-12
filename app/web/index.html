@@ -17,19 +17,29 @@
       <button class="nav-btn" data-view="models">模型</button>
       <button class="nav-btn" data-view="settings">设置</button>
     </nav>
+    <span class="runtime-badge" id="runtimeBadge">模型加载中…</span>
   </header>
 
   <main>
+    <div id="globalError" class="banner error hidden"></div>
+
     <!-- 识别 -->
     <section id="view-analyze" class="view active">
+      <div class="toolbar model-toolbar">
+        <label class="inline-label">识别模型
+          <select id="modelVersionSelect"><option value="auto">跟随当前版本</option></select>
+        </label>
+        <span class="mode-tag" id="modeTag">—</span>
+        <span class="muted">切换后仅影响新一次识别</span>
+      </div>
       <div class="dropzone" id="dropzone">
         <input type="file" id="fileInput" accept="image/*" hidden />
         <p class="dz-hint">拖拽图片到此处，或 <button class="link" id="pickBtn">点击选择</button></p>
-        <p class="dz-sub">支持 JPG / PNG / BMP / WebP（HEIC 需安装 pillow-heif）</p>
       </div>
       <div id="analyzeResult" class="result hidden">
         <div class="result-toolbar">
           <button class="btn" id="resetBtn">← 换一张图片</button>
+          <span class="muted" id="modelUsed"></span>
         </div>
         <div class="result-grid">
           <div class="card" id="imgCard">
@@ -47,7 +57,7 @@
             <ul class="evidence" id="evidenceList"></ul>
           </div>
           <div class="card" id="fieldCard">
-            <h3>关键字段 <button class="link small" id="toggleMask">显示原文</button></h3>
+            <h3>关键字段</h3>
             <table class="fields" id="fieldTable"></table>
             <div class="ocr-status" id="ocrStatus"></div>
           </div>
@@ -60,6 +70,11 @@
     <section id="view-batch" class="view">
       <div class="card">
         <h3>批量处理</h3>
+        <div class="toolbar">
+          <label class="inline-label">识别模型
+            <select id="batchModelVersionSelect"><option value="auto">跟随当前版本</option></select>
+          </label>
+        </div>
         <input type="file" id="batchInput" accept="image/*" multiple hidden />
         <button class="btn" id="batchPickBtn">选择多张图片</button>
         <button class="btn primary" id="batchStartBtn" disabled>开始处理</button>
@@ -69,7 +84,7 @@
           <button class="btn" id="exportCsvBtn" disabled>导出 CSV</button>
           <button class="btn" id="exportJsonBtn" disabled>导出 JSON</button>
         </div>
-        <table class="batch-table" id="batchTable"><thead><tr><th>文件</th><th>类别</th><th>风险</th><th>分数</th><th>状态</th></tr></thead><tbody></tbody></table>
+        <table class="batch-table" id="batchTable"><thead><tr><th>文件</th><th>类别</th><th>风险</th><th>分数</th><th>模型</th><th>状态</th></tr></thead><tbody></tbody></table>
       </div>
     </section>
 
@@ -77,7 +92,7 @@
     <section id="view-history" class="view">
       <div class="card">
         <h3>历史记录</h3>
-        <table class="batch-table" id="historyTable"><thead><tr><th>时间</th><th>文件</th><th>类别</th><th>风险</th><th>姓名</th><th>号码</th><th></th></tr></thead><tbody></tbody></table>
+        <table class="batch-table" id="historyTable"><thead><tr><th>时间</th><th>文件</th><th>类别</th><th>风险</th><th>模型</th><th>姓名</th><th>号码</th></tr></thead><tbody></tbody></table>
       </div>
     </section>
 
@@ -92,28 +107,77 @@
 
     <!-- 模型 -->
     <section id="view-models" class="view">
-      <div class="card">
+      <div class="card" id="versionsCard">
         <h3>模型版本</h3>
-        <div id="modelInfo"></div>
+        <p class="muted" id="modelCurrent">加载中…</p>
+        <div id="modelWarning" class="banner warn hidden"></div>
+        <table class="version-table" id="versionsTable">
+          <thead><tr><th>版本</th><th>模式</th><th>类别</th><th>创建时间</th><th>Acc</th><th>macro-F1</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <div class="card">
-        <h3>再训练</h3>
-        <form id="trainForm">
-          <label>数据目录 <input id="trainData" value="data/recapture" /></label>
-          <label>轮数 <input id="trainEpochs" type="number" value="60" min="1" /></label>
-          <label>输出目录 <input id="trainOut" value="runs/recap_web" /></label>
-          <button type="submit" class="btn primary">开始训练</button>
-        </form>
-        <p id="trainStatus" class="muted"></p>
+
+      <div class="card hidden" id="trainCard">
+        <h3>再训练 <span class="mode-tag" id="trainModeTag">—</span></h3>
+        <p class="muted">训练始终跟随「设置 → 识别模式」。最低要求：original 与 screen_recapture 各 ≥5 张、合计 ≥10 张。</p>
+        <div class="dataset-grid" id="datasetSummary"></div>
+        <ul class="guidance-list" id="datasetGuidance"></ul>
+        <div id="datasetIssues"></div>
+        <div class="upload-row">
+          <label class="inline-label">上传类别 <select id="uploadClass"></select></label>
+          <input type="file" id="uploadFiles" accept="image/*" multiple />
+          <button class="btn" id="uploadBtn">上传素材</button>
+          <span class="muted" id="uploadStatus"></span>
+        </div>
+        <div class="params-grid">
+          <label>轮数 <input id="trainEpochs" type="number" min="10" max="2000" value="200" /></label>
+          <label>学习率 <input id="trainLr" type="number" step="0.05" min="0.01" max="2" value="0.5" /></label>
+          <label>每类上限 <input id="trainLimit" type="number" min="0" value="0" /></label>
+          <label>目标 FPR <input id="trainTargetFpr" type="number" step="0.01" min="0.01" max="0.5" value="0.05" /></label>
+          <label>版本标签 <input id="trainLabel" placeholder="train" /></label>
+          <label class="checkbox-label"><input type="checkbox" id="trainInitFrom" /> 从当前版本热启动</label>
+        </div>
+        <div class="toolbar">
+          <button class="btn primary" id="trainStartBtn" disabled>开始训练</button>
+          <span class="muted" id="trainHint">数据集体检中…</span>
+        </div>
+        <div class="progress"><div class="progress-bar" id="trainProgress"></div></div>
+        <pre class="log hidden" id="trainLogs"></pre>
+        <div id="trainResult"></div>
       </div>
     </section>
 
     <!-- 设置 -->
     <section id="view-settings" class="view">
       <div class="card">
-        <h3>运行配置（config/settings.yaml）</h3>
-        <p class="muted">以下为当前加载的配置快照；修改请编辑配置文件后重启服务。</p>
-        <pre id="settingsDump" class="pre"></pre>
+        <h3>界面与识别模式</h3>
+        <label class="checkbox-label"><input type="checkbox" id="showTrainingToggle" /> 显示「模型 → 再训练」区域</label>
+        <div class="radio-row" id="modeRadios">
+          <label class="radio-card">
+            <span><input type="radio" name="recaptureMode" value="screen_and_print" /> <b>屏幕翻拍 + 打印翻拍</b></span>
+            <span class="muted">模型需含 original / screen_recapture / print_recapture 三类；2 类模型不可用。</span>
+          </label>
+          <label class="radio-card">
+            <span><input type="radio" name="recaptureMode" value="screen_only" /> <b>仅屏幕翻拍</b></span>
+            <span class="muted">不输出打印类别；三类模型会自动屏蔽打印项，打印样本不参与训练。</span>
+          </label>
+        </div>
+        <label>保留版本数 <input id="keepVersions" type="number" min="1" max="50" value="10" /></label>
+        <label>阈值校准目标 FPR <input id="targetFpr" type="number" step="0.01" min="0.01" max="0.5" value="0.05" /></label>
+        <div class="toolbar">
+          <button class="btn primary" id="saveSettingsBtn">保存设置</button>
+          <span class="muted" id="settingsStatus"></span>
+        </div>
+        <div id="settingsWarnings"></div>
+        <p class="muted">设置写入 config/settings.local.json（本地、不入库），保存后立即生效，无需重启。</p>
+      </div>
+      <div class="card">
+        <h3>运行状态</h3>
+        <pre id="healthDump" class="pre"></pre>
+      </div>
+      <div class="card">
+        <h3>生效配置（只读）</h3>
+        <pre id="settingsEffective" class="pre"></pre>
       </div>
       <div class="card">
         <h3>隐私与合规</h3>

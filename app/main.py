@@ -8,49 +8,56 @@ from __future__ import annotations
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi import Body, FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import __version__
+from .api.ops import ApiError, ApiOps
 from .app_context import AppContext
 from .core.config import ROOT
 
 ctx = AppContext()
+ops = ApiOps(ctx)
 
-app = FastAPI(title="居民身份证翻拍识别工具", version="1.0.0")
+app = FastAPI(title="居民身份证翻拍识别工具", version=__version__)
 
 
+@app.exception_handler(ApiError)
+async def _handle_api_error(request: Request, exc: ApiError):  # noqa: ARG001
+    payload = {"code": exc.code, "error": exc.message}
+    payload.update(exc.payload)
+    return JSONResponse(payload, status_code=exc.code)
+
+
+# --------------------------------------------------------------------------- 健康
 @app.get("/api/health")
 def health():
-    # 仅检查 rapidocr 是否已安装，避免触发模型下载（离线首次启动可能耗时/失败）
-    import importlib.util
-    ocr_installed = importlib.util.find_spec("rapidocr") is not None
-    return {"status": "ok", "ocr_installed": ocr_installed, "version": "1.0.0"}
+    return ops.health()
 
 
+# --------------------------------------------------------------------------- 识别
 @app.post("/api/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(file: UploadFile = File(...), model_version: str = Form("auto")):
     data = await file.read()
-    res = ctx.analyze(data, file.filename or "upload.jpg")
-    return JSONResponse(res)
+    return JSONResponse(ops.analyze(data, file.filename or "upload.jpg", model_version))
 
 
 @app.post("/api/batch")
-async def batch(files: List[UploadFile] = File(...)):
+async def batch(files: List[UploadFile] = File(...), model_version: str = Form("auto")):
     items = []
     for f in files:
-        data = await f.read()
-        items.append((f.filename or "image.jpg", data))
-    tid = ctx.batch(items)
-    return {"code": 0, "task_id": tid}
+        items.append((f.filename or "image.jpg", await f.read()))
+    return JSONResponse(ops.batch(items, model_version))
 
 
 @app.get("/api/batch/{task_id}")
 async def batch_status(task_id: str):
-    return ctx.batch_status(task_id)
+    return ops.batch_status(task_id)
 
 
+# --------------------------------------------------------------------------- 反馈
 @app.post("/api/feedback")
 async def feedback(file: UploadFile = File(...), true_class: str = "screen_recapture", note: str = ""):
     data = await file.read()
@@ -79,40 +86,68 @@ async def reject_feedback(fid: str):
     return {"code": 0, "ok": ctx.storage.reject_feedback(fid)}
 
 
-class TrainParams(BaseModel):
-    data_dir: str = "data/recapture"
-    epochs: int = 60
-    out: str = "runs/recap_web"
-    limit_per_class: int = 0
-    class_weights: Optional[dict] = None
+# --------------------------------------------------------------------------- 训练
+@app.get("/api/train/dataset")
+async def train_dataset(data_dir: Optional[str] = None, mode: Optional[str] = None):
+    return ops.dataset(data_dir, mode)
+
+
+@app.post("/api/train/samples")
+async def train_samples(class_name: str = Form(..., alias="class"),
+                        files: List[UploadFile] = File(...)):
+    items = []
+    for f in files:
+        items.append((f.filename or "sample.jpg", await f.read()))
+    return ops.upload_samples(class_name, items)
+
+
+@app.post("/api/train/samples/delete")
+async def train_samples_delete(body: dict = Body(...)):
+    return ops.delete_sample(body.get("class"), body.get("name"))
 
 
 @app.post("/api/train")
-async def train(body: TrainParams):
-    tid = ctx.start_train(body.model_dump())
-    return {"code": 0, "job_id": tid}
+async def train(body: dict = Body(...)):
+    return ops.train_start(body)
 
 
 @app.get("/api/train/{job_id}")
 async def train_status(job_id: str):
-    return ctx.train_status(job_id)
+    return ops.train_status(job_id)
 
 
+# --------------------------------------------------------------------------- 模型
 @app.get("/api/models")
 async def models():
-    return {"code": 0, "current": ctx.model_manager.current(), "versions": ctx.model_manager.list_versions()}
+    return ops.models()
 
 
-class RollbackBody(BaseModel):
+class VersionBody(BaseModel):
     version: str
 
 
+@app.post("/api/models/activate")
+async def activate(body: VersionBody):
+    return ops.activate(body.version)
+
+
 @app.post("/api/models/rollback")
-async def rollback(body: RollbackBody):
-    ok = ctx.model_manager.rollback(body.version)
-    return {"code": 0 if ok else 1, "ok": ok}
+async def rollback(body: VersionBody):
+    return ops.activate(body.version)
 
 
+# --------------------------------------------------------------------------- 设置
+@app.get("/api/settings")
+async def get_settings():
+    return ops.settings_get()
+
+
+@app.post("/api/settings")
+async def save_settings(body: dict = Body(...)):
+    return ops.settings_save(body)
+
+
+# --------------------------------------------------------------------------- 历史
 @app.get("/api/history")
 async def history(limit: int = 100, offset: int = 0):
     return {"code": 0, "items": ctx.storage.list_history(limit, offset)}

@@ -16,6 +16,9 @@ pipeline:
     fallback_to_v4: true     # PP-OCRv5 失败时降级 v4
 
 recapture:
+  # 识别模式：screen_only（仅屏幕翻拍）| screen_and_print（屏幕 + 打印翻拍）
+  # 训练类别集合与推理行为都跟随该设置；切换时若当前模型不兼容会自动启用兼容版本。
+  mode: screen_and_print
   # 融合权重：recapture_score = w_screen*P(screen) + w_print*P(print) + w_signal*signal_score
   fusion_weights: { w_screen: 0.45, w_print: 0.35, w_signal: 0.20 }
   # 风险分级：score < low 低风险(原件)；> high 高风险(疑似翻拍)；其间中风险(建议复核)
@@ -36,3 +39,15 @@ storage:
 models:
   root: models
   checksums: models/checksums.json
+
+# 界面：控制前端功能区的显示（可在 Web「设置」页修改并即时生效）
+ui:
+  show_training: true        # 是否显示「模型 → 再训练」区域
+
+# 训练默认参数（可在 Web 端按次覆盖；min_macro_f1 / epochs / lr 为只读默认值）
+training:
+  epochs: 200
+  lr: 0.5
+  target_fpr: 0.05           # 阈值校准的目标假阳率
+  keep_versions: 10          # 自动保留的模型版本数（基线 1.0.0 与当前版本始终保留）
+  min_macro_f1: 0.5          # 质量门：低于该值的训练结果只保存为候选、不自动启用

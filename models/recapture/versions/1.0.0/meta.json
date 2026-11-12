@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "created_at": 1794400000.0,
+  "source": "baseline",
+  "label": "v1.0 基线",
+  "parent_version": null,
+  "mode": "screen_and_print",
+  "classes": ["original", "screen_recapture", "print_recapture"],
+  "params": {},
+  "dataset": null,
+  "metrics": null,
+  "thresholds": {"low": 0.3, "high": 0.6},
+  "promoted": true,
+  "gate": "passed",
+  "note": "随仓库发布的特征逻辑回归基线；可由 Web 端再训练覆盖。"
+}

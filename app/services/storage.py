@@ -20,6 +20,14 @@ class Storage:
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        # 某些运行环境（沙箱、受限终端）无法访问系统临时目录，SQLite 在外排排序
+        # （如 SELECT * ... ORDER BY）时尝试创建临时文件，会报 unable to open database file。
+        # 历史/反馈数据量很小，统一放内存，避免依赖 TEMP。
+        try:
+            conn.execute("PRAGMA temp_store=MEMORY")
+            conn.execute("PRAGMA busy_timeout=5000")
+        except sqlite3.Error:
+            pass
         return conn
 
     def _init(self):
@@ -69,6 +77,8 @@ class Storage:
                     "class": res.get("recapture", {}).get("class"),
                     "risk": res.get("recapture", {}).get("risk"),
                     "score": res.get("recapture", {}).get("score"),
+                    "model_version": res.get("recapture", {}).get("model_version"),
+                    "mode": res.get("recapture", {}).get("mode"),
                     "name": res.get("fields", {}).get("name"),
                     "id_number": res.get("fields", {}).get("id_number"),
                 },
