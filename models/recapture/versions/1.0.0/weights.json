@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "model_type": "feature_logistic",
+  "feature_names": [
+    "moire",
+    "screen_grid",
+    "bezel",
+    "highlight",
+    "texture_degradation",
+    "halftone",
+    "paper_noise",
+    "saturation_drop",
+    "color_shift"
+  ],
+  "temperature": 1.5,
+  "logits": {
+    "original": {
+      "bias": 1,
+      "weights": {}
+    },
+    "screen_recapture": {
+      "bias": -1.5,
+      "weights": {
+        "moire": 3,
+        "screen_grid": 2,
+        "bezel": 1,
+        "highlight": 0.8,
+        "color_shift": 0.6
+      }
+    },
+    "print_recapture": {
+      "bias": -1.5,
+      "weights": {
+        "texture_degradation": 1.2,
+        "halftone": 3,
+        "paper_noise": 0.8,
+        "saturation_drop": 1
+      }
+    }
+  },
+  "signal_weights": {
+    "moire": 0.3,
+    "screen_grid": 0.1,
+    "bezel": 0.15,
+    "highlight": 0.1,
+    "texture_degradation": 0.1,
+    "halftone": 0.25,
+    "paper_noise": 0.1,
+    "saturation_drop": 0.05,
+    "color_shift": 0.05
+  },
+  "fusion_weights": {
+    "w_screen": 0.45,
+    "w_print": 0.35,
+    "w_signal": 0.2
+  },
+  "thresholds": {
+    "low": 0.3,
+    "high": 0.6
+  }
+}

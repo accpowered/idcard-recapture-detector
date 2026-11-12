@@ -1,0 +1,6 @@
+# 训练 / 再训练与开发（可选，较大）
+-r requirements.txt
+torch>=2.1            # CPU 版
+timm>=0.9
+ultralytics>=8.1      # 卡证检测微调（可选）
+pytest>=7

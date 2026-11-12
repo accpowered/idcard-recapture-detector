@@ -1,0 +1,29 @@
+[project]
+name = "261112-reshoot-check"
+version = "1.0.0"
+description = "居民身份证翻拍识别工具（CPU / Web / 可再训练）"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy<3",
+  "opencv-python-headless>=4.8",
+  "pillow>=10",
+  "pyyaml>=6",
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+  "python-multipart>=0.0.9",
+  "pydantic>=2,<3",
+  "onnxruntime>=1.17",
+  "rapidocr>=3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+idcard-reshoot = "run:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

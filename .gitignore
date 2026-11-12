@@ -1,0 +1,92 @@
+# ============================================================
+# .gitignore — 居民身份证翻拍识别工具
+# 只提交源码、配置、文档、测试与随仓库发布的特征权重。
+# 训练数据、模型二进制、虚拟环境、本地缓存一律忽略。
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ---------- 虚拟环境 / 依赖目录 ----------
+.venv/
+venv/
+env/
+ENV/
+vendor/
+.vendor/
+
+# ---------- uv ----------
+# uv.lock 与 .python-version 建议随仓库提交（锁定解释器与依赖），此处不忽略。
+
+# ---------- 数据（训练/反馈/原始素材）----------
+data/*
+!data/.gitkeep
+data/raw/
+data/recapture/
+data/idcard_det/
+data/synthetic/
+data/feedback/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# ---------- 训练产物 ----------
+runs/
+outputs/
+*.pt
+*.pth
+*.onnx
+*.pdparams
+*.pdiparams
+*.pdmodel
+*.pdopt
+
+# ---------- 模型二进制（特征权重 JSON 入库，ONNX/PT 不入库）----------
+models/**/*.onnx
+models/**/*.pt
+models/**/*.pth
+models/**/*.pdparams
+models/ocr/*
+!models/ocr/.gitkeep
+
+# ---------- 缓存 / 临时 ----------
+.pip-cache/
+.pipcache*/
+.tmp/
+*.log
+*.tmp
+*.bak
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------- 沙箱/本地残留（若出现则不提交）----------
+.build-tmp/
+.m1/
+.m3/
+_mode_*/
+_tmppip*/
+_pipcache*/
+
+# ---------- 本地敏感配置 ----------
+.env
+.env.*
+!.env.example
+*.local

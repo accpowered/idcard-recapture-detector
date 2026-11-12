@@ -1,0 +1,5 @@
+# OCR 依赖（已包含在 requirements.txt 中，此文件保留用于仅补装 OCR 的场景）
+# 安装：pip install -r requirements-ocr.txt
+# 实测：rapidocr 3.10.0 + onnxruntime 1.31.1（CPU），中文身份证字段识别正常
+onnxruntime>=1.17
+rapidocr>=3.0

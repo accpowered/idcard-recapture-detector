@@ -1,0 +1,16 @@
+# 核心依赖（CPU，Windows/Linux 通用）
+# 说明：OCR（字段识别）为 P0 核心能力，故 rapidocr + onnxruntime 默认随核心依赖安装。
+numpy<3
+opencv-python-headless>=4.8
+pillow>=10
+pyyaml>=6
+
+# Web 服务
+fastapi>=0.110
+uvicorn>=0.27
+python-multipart>=0.0.9
+pydantic>=2,<3
+
+# OCR（PP-OCR 中文，ONNX Runtime CPU）
+onnxruntime>=1.17
+rapidocr>=3.0

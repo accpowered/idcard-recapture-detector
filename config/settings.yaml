@@ -1,0 +1,38 @@
+# 居民身份证翻拍识别工具 — 主配置
+# 所有路径均相对仓库根目录。
+
+app:
+  host: 127.0.0.1
+  port: 8000
+  auto_open: true            # 启动后自动打开浏览器
+
+pipeline:
+  max_long_side: 1600        # 输入归一化：长边缩放上限
+  card_size: [856, 540]      # 透视矫正后基准尺寸 (宽, 高)
+  enable_orientation: false  # 方向分类未启用时跳过
+  enable_unwarp: false       # UVDoc 形变矫正（可选，默认关闭）
+  ocr:
+    enabled: true            # OCR 是否启用（未安装 rapidocr 时自动降级并标注）
+    fallback_to_v4: true     # PP-OCRv5 失败时降级 v4
+
+recapture:
+  # 融合权重：recapture_score = w_screen*P(screen) + w_print*P(print) + w_signal*signal_score
+  fusion_weights: { w_screen: 0.45, w_print: 0.35, w_signal: 0.20 }
+  # 风险分级：score < low 低风险(原件)；> high 高风险(疑似翻拍)；其间中风险(建议复核)
+  thresholds: { low: 0.30, high: 0.60 }
+  # 特征分类器权重（JSON，可由 tools/train_recapture.py 再训练覆盖）
+  weights_path: models/recapture/weights.json
+
+privacy:
+  store_original: false      # 是否落盘原图（默认仅驻留内存）
+  mask_fields: true          # 身份证号/姓名默认打码展示与落库
+  log_id_number: false       # 日志中是否出现完整身份证号
+
+storage:
+  db_path: data/app.db
+  feedback_dir: data/feedback
+  history_limit: 5000
+
+models:
+  root: models
+  checksums: models/checksums.json

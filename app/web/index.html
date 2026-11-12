@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>居民身份证翻拍识别工具</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🪪 居民身份证翻拍识别工具</div>
+    <nav>
+      <button class="nav-btn active" data-view="analyze">识别</button>
+      <button class="nav-btn" data-view="batch">批量</button>
+      <button class="nav-btn" data-view="history">历史</button>
+      <button class="nav-btn" data-view="review">复核</button>
+      <button class="nav-btn" data-view="models">模型</button>
+      <button class="nav-btn" data-view="settings">设置</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 识别 -->
+    <section id="view-analyze" class="view active">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/*" hidden />
+        <p class="dz-hint">拖拽图片到此处，或 <button class="link" id="pickBtn">点击选择</button></p>
+        <p class="dz-sub">支持 JPG / PNG / BMP / WebP（HEIC 需安装 pillow-heif）</p>
+      </div>
+      <div id="analyzeResult" class="result hidden">
+        <div class="result-toolbar">
+          <button class="btn" id="resetBtn">← 换一张图片</button>
+        </div>
+        <div class="result-grid">
+          <div class="card" id="imgCard">
+            <img id="annotatedImg" alt="标注结果" />
+          </div>
+          <div class="card" id="verdictCard">
+            <h3>翻拍判定</h3>
+            <div class="verdict-row">
+              <span class="risk-badge" id="riskBadge">—</span>
+              <span class="class-label" id="classLabel">—</span>
+              <span class="score" id="scoreVal">score 0.00</span>
+            </div>
+            <div class="probs" id="probs"></div>
+            <h4>可解释线索</h4>
+            <ul class="evidence" id="evidenceList"></ul>
+          </div>
+          <div class="card" id="fieldCard">
+            <h3>关键字段 <button class="link small" id="toggleMask">显示原文</button></h3>
+            <table class="fields" id="fieldTable"></table>
+            <div class="ocr-status" id="ocrStatus"></div>
+          </div>
+        </div>
+      </div>
+      <div id="analyzeError" class="error hidden"></div>
+    </section>
+
+    <!-- 批量 -->
+    <section id="view-batch" class="view">
+      <div class="card">
+        <h3>批量处理</h3>
+        <input type="file" id="batchInput" accept="image/*" multiple hidden />
+        <button class="btn" id="batchPickBtn">选择多张图片</button>
+        <button class="btn primary" id="batchStartBtn" disabled>开始处理</button>
+        <div class="progress"><div class="progress-bar" id="batchProgress"></div></div>
+        <p id="batchStatus" class="muted"></p>
+        <div class="toolbar">
+          <button class="btn" id="exportCsvBtn" disabled>导出 CSV</button>
+          <button class="btn" id="exportJsonBtn" disabled>导出 JSON</button>
+        </div>
+        <table class="batch-table" id="batchTable"><thead><tr><th>文件</th><th>类别</th><th>风险</th><th>分数</th><th>状态</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- 历史 -->
+    <section id="view-history" class="view">
+      <div class="card">
+        <h3>历史记录</h3>
+        <table class="batch-table" id="historyTable"><thead><tr><th>时间</th><th>文件</th><th>类别</th><th>风险</th><th>姓名</th><th>号码</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- 复核 -->
+    <section id="view-review" class="view">
+      <div class="card">
+        <h3>误判复核队列</h3>
+        <p class="muted">确认样本标签后，图片将并入 data/recapture/ 供再训练。</p>
+        <div id="reviewList"></div>
+      </div>
+    </section>
+
+    <!-- 模型 -->
+    <section id="view-models" class="view">
+      <div class="card">
+        <h3>模型版本</h3>
+        <div id="modelInfo"></div>
+      </div>
+      <div class="card">
+        <h3>再训练</h3>
+        <form id="trainForm">
+          <label>数据目录 <input id="trainData" value="data/recapture" /></label>
+          <label>轮数 <input id="trainEpochs" type="number" value="60" min="1" /></label>
+          <label>输出目录 <input id="trainOut" value="runs/recap_web" /></label>
+          <button type="submit" class="btn primary">开始训练</button>
+        </form>
+        <p id="trainStatus" class="muted"></p>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <h3>运行配置（config/settings.yaml）</h3>
+        <p class="muted">以下为当前加载的配置快照；修改请编辑配置文件后重启服务。</p>
+        <pre id="settingsDump" class="pre"></pre>
+      </div>
+      <div class="card">
+        <h3>隐私与合规</h3>
+        <p class="muted">全流程本地推理，无云端调用；原图默认仅驻留内存；身份证号/姓名默认打码。仅用于授权业务场景，使用方须遵守《个人信息保护法》等法规。</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
