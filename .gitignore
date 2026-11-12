@@ -90,3 +90,6 @@ _pipcache*/
 .env.*
 !.env.example
 *.local
+# 内部临时脚本
+_gh_*.mjs
+_pipwrap.py
